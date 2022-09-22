@@ -1,4 +1,5 @@
 import json
+import logging
 import socket
 import ssl
 
@@ -35,23 +36,37 @@ def conn_handler(conn_socket):
         return
 
     while True:
-        read_fds, _, error_fds = select([conn_socket, client_socket], [], [conn_socket, client_socket])
-        if conn_socket in error_fds or client_socket in error_fds:
+        try:
+            read_fds, _, error_fds = select([conn_socket, client_socket], [], [conn_socket, client_socket])
+            if conn_socket in error_fds or client_socket in error_fds:
+                logging.warning("conn_socket/client_socket error.")
+                conn_socket.close()
+                client_socket.close()
+                return
+
+            if conn_socket in read_fds:
+                data = conn_socket.recv(1024 * 1024)
+                if not data:
+                    logging.warning("conn_socket close.")
+                    conn_socket.close()
+                    client_socket.close()
+                    return
+                client_socket.send(data)
+
+            if client_socket in read_fds:
+                data = client_socket.recv(1024 * 1024)
+                if not data:
+                    logging.warning("client_socket close.")
+                    conn_socket.close()
+                    client_socket.close()
+                    return
+                conn_socket.send(data)
+
+        except Exception as ex:
+            logging.warning(str(ex))
             conn_socket.close()
             client_socket.close()
             return
-
-        if conn_socket in read_fds:
-            data = conn_socket.recv(1024 * 1024)
-            if not data:
-                break
-            client_socket.send(data)
-
-        if client_socket in read_fds:
-            data = client_socket.recv(1024 * 1024)
-            if not data:
-                break
-            conn_socket.send(data)
 
 
 def load_client_conf(conf_file):
@@ -79,5 +94,6 @@ def run_client():
 
 
 if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.DEBUG)
     load_client_conf("client.json")
     run_client()
