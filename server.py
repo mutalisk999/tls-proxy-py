@@ -65,13 +65,7 @@ def conn_handler(conn_socket):
             # exchange data
             while True:
                 try:
-                    read_fds, _, error_fds = select([conn_socket, client_socket], [], [conn_socket, client_socket])
-                    if conn_socket in error_fds or client_socket in error_fds:
-                        logging.warning("conn_socket/client_socket error.")
-                        conn_socket.close()
-                        client_socket.close()
-                        return
-
+                    read_fds, _, _ = select([conn_socket, client_socket], [], [])
                     if conn_socket in read_fds:
                         data = conn_socket.recv(1024 * 1024)
                         logging.debug(data)
@@ -91,6 +85,7 @@ def conn_handler(conn_socket):
                             client_socket.close()
                             return
                         conn_socket.send(data)
+
                 except Exception as ex:
                     logging.warning(str(ex))
                     conn_socket.close()
