@@ -23,6 +23,7 @@ def conn_handler(conn_socket):
     try:
         client_socket.connect((client_conf.get("server_host"), client_conf.get("server_port")))
     except Exception as ex:
+        logging.warning(str(ex))
         if isinstance(ex, ConnectionRefusedError):
             conn_socket.send(b"ConnectionRefusedError")
         elif isinstance(ex, TimeoutError):
@@ -91,6 +92,11 @@ def run_client():
 
 
 if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(
+        filename='log/client.log',
+        level=logging.DEBUG,
+        format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    )
     load_client_conf("client.json")
     run_client()

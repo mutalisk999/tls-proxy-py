@@ -36,22 +36,17 @@ def conn_handler(conn_socket):
         values = socks5.parse_request_body(data)
 
         if values[0] == chr(0x01):
+            # ip v6
             if values[1] == chr(0x04):
-                client_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-                client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            else:
-                client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                raise Exception("ip v6 not supported")
 
-            if values[1] == chr(0x01):
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+            # ip v4 or domain name
+            if values[1] in (chr(0x01), chr(0x03)):
                 data = [0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-            elif values[1] == chr(0x03):
-                data = [0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00]
-            elif values[1] == chr(0x04):
-                data = [0x05, 0x00, 0x00, 0x04,
-                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                        0x00, 0x00]
+
             try:
                 client_socket.connect((values[2].decode("ascii"), values[3]))
                 conn_socket.send(bytes(data))
@@ -62,6 +57,7 @@ def conn_handler(conn_socket):
                     data[1] = 0x04
                 else:
                     data[1] = 0x03
+                logging.warning(str(ex))
                 conn_socket.send(bytes(data))
                 conn_socket.close()
                 return
@@ -138,6 +134,11 @@ def run_server():
 
 
 if __name__ == "__main__":
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(
+        filename='log/server.log',
+        level=logging.DEBUG,
+        format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'
+    )
     load_server_conf("server.json")
     run_server()
