@@ -22,16 +22,13 @@ def conn_handler(conn_socket):
                                     certfile=client_conf.get("client_cert"))
     try:
         client_socket.connect((client_conf.get("server_host"), client_conf.get("server_port")))
-    except ConnectionRefusedError as ex:
-        conn_socket.send(b"ConnectionRefusedError")
-        conn_socket.close()
-        return
-    except TimeoutError as ex:
-        conn_socket.send(b"TimeoutError")
-        conn_socket.close()
-        return
     except Exception as ex:
-        conn_socket.send(str(ex).encode(encoding="ascii", errors="ignore"))
+        if isinstance(ex, ConnectionRefusedError):
+            conn_socket.send(b"ConnectionRefusedError")
+        elif isinstance(ex, TimeoutError):
+            conn_socket.send(b"TimeoutError")
+        else:
+            conn_socket.send(str(ex).encode(encoding="ascii", errors="ignore"))
         conn_socket.close()
         return
 

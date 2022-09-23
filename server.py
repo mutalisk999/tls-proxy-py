@@ -9,6 +9,8 @@ from typing import Optional, Dict
 import socks5
 import logging
 
+from network import tcp_read_timeout
+
 monkey.patch_all()
 
 server_conf: Optional[Dict] = None
@@ -17,7 +19,7 @@ server_conf: Optional[Dict] = None
 def conn_handler(conn_socket):
     # read handshake data
     try:
-        data = conn_socket.recv(1024 * 1024)
+        data = tcp_read_timeout(conn_socket, 5)
         check = socks5.parse_handshake_body(data)
         if not check:
             conn_socket.close()
@@ -30,7 +32,7 @@ def conn_handler(conn_socket):
 
     # read request data
     try:
-        data = conn_socket.recv(1024 * 1024)
+        data = tcp_read_timeout(conn_socket, 5)
         values = socks5.parse_request_body(data)
 
         if values[0] == chr(0x01):
@@ -41,22 +43,25 @@ def conn_handler(conn_socket):
                 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-            data = [0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            if values[1] == chr(0x01):
+                data = [0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            elif values[1] == chr(0x03):
+                data = [0x05, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00]
+            elif values[1] == chr(0x04):
+                data = [0x05, 0x00, 0x00, 0x04,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00]
             try:
                 client_socket.connect((values[2].decode("ascii"), values[3]))
                 conn_socket.send(bytes(data))
-            except ConnectionRefusedError as ex:
-                data[1] = 0x05
-                conn_socket.send(bytes(data))
-                conn_socket.close()
-                return
-            except TimeoutError as ex:
-                data[1] = 0x04
-                conn_socket.send(bytes(data))
-                conn_socket.close()
-                return
             except Exception as ex:
-                data[1] = 0x03
+                if isinstance(ex, ConnectionRefusedError):
+                    data[1] = 0x05
+                elif isinstance(ex, TimeoutError):
+                    data[1] = 0x04
+                else:
+                    data[1] = 0x03
                 conn_socket.send(bytes(data))
                 conn_socket.close()
                 return
@@ -96,6 +101,7 @@ def conn_handler(conn_socket):
                     client_socket.close()
                     return
         else:
+            logging.warning("CMD: 0x%x not support" % int(values[0]))
             conn_socket.close()
             return
 
