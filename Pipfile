@@ -4,8 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-gevent = "21.12.0"
 ipaddr = "2.2.0"
+aiodns = "3.0.0"
 
 [dev-packages]
 

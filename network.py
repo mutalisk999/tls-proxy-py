@@ -1,12 +1,17 @@
 #!/usr/bin/env python
 # encoding: utf-8
+import logging
 
 
-from gevent.select import select
-
-
-def tcp_read_timeout(tcp_socket, timeout: int) -> bytes:
-    read_fds, _, _ = select([tcp_socket], [], [], timeout=timeout)
-    if tcp_socket in read_fds:
-        return tcp_socket.recv(1024 * 1024)
-    raise Exception("tcp_read_timeout timeout")
+async def tcp_copy(_loop, _tcp_socket_from, _tcp_socket_to):
+    while True:
+        try:
+            data = await _loop.sock_recv(_tcp_socket_from, 1024 * 1024)
+            if not data:
+                break
+            await _loop.sock_sendall(_tcp_socket_to, data)
+        except Exception as ex:
+            logging.warning(str(ex))
+            _tcp_socket_from.close()
+            _tcp_socket_to.close()
+            break
