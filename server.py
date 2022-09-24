@@ -3,8 +3,6 @@ import json
 import socket
 import ssl
 
-import aiodns
-
 import socks5
 import logging
 
