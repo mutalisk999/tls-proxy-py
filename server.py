@@ -1,6 +1,8 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
 import asyncio
 import json
-import socket
 import ssl
 
 import socks5
@@ -9,23 +11,22 @@ import logging
 from network import tcp_copy
 
 
-async def conn_handler(_loop, _conn_socket):
+async def conn_handler(conn_reader, conn_writer):
     # read handshake data
     try:
-        data = await _loop.sock_recv(_conn_socket, 1024 * 1024)
+        data = await conn_reader.read(1024 * 1024)
         check = socks5.parse_handshake_body(data)
         if not check:
-            _conn_socket.close()
             return
-        await _loop.sock_sendall(_conn_socket, b'\x05\x00')
+        conn_writer.write(b'\x05\x00')
+        await conn_writer.drain()
     except Exception as ex:
         logging.warning(str(ex))
-        _conn_socket.close()
         return
 
     # read request data
     try:
-        data = await _loop.sock_recv(_conn_socket, 1024 * 1024)
+        data = await conn_reader.read(1024 * 1024)
         values = socks5.parse_request_body(data)
 
         if values[0] == chr(0x01):
@@ -33,16 +34,14 @@ async def conn_handler(_loop, _conn_socket):
             if values[1] == chr(0x04):
                 raise Exception("ip v6 not supported")
 
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client_socket.setblocking(False)
-
             # ip v4 or domain name
             if values[1] in (chr(0x01), chr(0x03)):
                 data = [0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 
             try:
-                await _loop.sock_connect(client_socket, (values[2], values[3]))
-                await _loop.sock_sendall(_conn_socket, bytes(data))
+                client_reader, client_writer = await asyncio.open_connection(values[2], values[3])
+                conn_writer.write(bytes(data))
+                await conn_writer.drain()
             except Exception as ex:
                 if isinstance(ex, ConnectionRefusedError):
                     data[1] = 0x05
@@ -51,39 +50,39 @@ async def conn_handler(_loop, _conn_socket):
                 else:
                     data[1] = 0x03
                 logging.warning(str(ex))
-                await _loop.sock_sendall(_conn_socket, bytes(data))
-                _conn_socket.close()
+                conn_writer.write(bytes(data))
+                await conn_writer.drain()
                 return
 
             # exchange data
-            _loop.create_task(tcp_copy(_loop, _conn_socket, client_socket))
-            _loop.create_task(tcp_copy(_loop, client_socket, _conn_socket))
+            await asyncio.gather(
+                asyncio.get_running_loop().create_task(tcp_copy(conn_reader, client_writer)),
+                asyncio.get_running_loop().create_task(tcp_copy(client_reader, conn_writer))
+            )
 
         else:
             logging.warning("CMD: 0x%x not support" % int(values[0]))
-            _conn_socket.close()
             return
 
     except Exception as ex:
         logging.warning(str(ex))
-        _conn_socket.close()
         return
 
 
-async def run_server(_loop, _server_conf):
-    listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    listen_socket = ssl.wrap_socket(
-        listen_socket, server_side=True, keyfile=_server_conf.get("server_key"),
-        certfile=_server_conf.get("server_cert")
-    )
-    listen_socket.setblocking(False)
-    listen_socket.bind((_server_conf.get("listen_host"), _server_conf.get("listen_port")))
-    listen_socket.listen(0)
-
-    while True:
-        connect_socket, _ = await _loop.sock_accept(listen_socket)
-        _loop.create_task(conn_handler(loop, connect_socket))
+async def run_server(_server_conf):
+    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_ctx.options |= ssl.OP_NO_TLSv1
+    ssl_ctx.options |= ssl.OP_NO_TLSv1_1
+    ssl_ctx.options |= ssl.OP_SINGLE_DH_USE
+    ssl_ctx.options |= ssl.OP_SINGLE_ECDH_USE
+    ssl_ctx.load_cert_chain(certfile=_server_conf.get("server_cert"), keyfile=_server_conf.get("server_key"))
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.VerifyMode.CERT_NONE
+    ssl_ctx.set_ciphers('ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384')
+    await asyncio.start_server(conn_handler,
+                               _server_conf.get("listen_host"),
+                               _server_conf.get("listen_port"),
+                               ssl=ssl_ctx)
 
 
 def load_server_conf(conf_file):
@@ -102,7 +101,7 @@ if __name__ == "__main__":
         format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
         datefmt='%H:%M:%S'
     )
+    loop = asyncio.new_event_loop()
     server_conf = load_server_conf("server.json")
-    loop = asyncio.get_event_loop()
-    loop.create_task(run_server(loop, server_conf))
+    loop.create_task(run_server(server_conf))
     loop.run_forever()
