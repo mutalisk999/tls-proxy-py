@@ -1,6 +1,9 @@
-# protocol socks5
+#!/usr/bin/env python
+# encoding: utf-8
+
 import socket
-import ipaddr
+
+# import ipaddr
 
 ProtocolVersion = chr(0x05)
 
@@ -57,8 +60,9 @@ def parse_request_body(data: bytes) -> tuple:
                 int(data[5 + int(data[4])]) * 256 + int(data[6 + int(data[4])]))
     elif chr(data[3]) == chr(0x04):
         # ip v6
-        if len(data) != 22:
-            raise Exception("invalid request body length")
-        return (chr(data[1]), chr(data[3]),
-                str(ipaddr.IPv6Address(ipaddr.Bytes(data[4:20]))),
-                int(data[20]) * 256 + int(data[21]))
+        # if len(data) != 22:
+        #     raise Exception("invalid request body length")
+        # return (chr(data[1]), chr(data[3]),
+        #         str(ipaddr.IPv6Address(ipaddr.Bytes(data[4:20]))),
+        #         int(data[20]) * 256 + int(data[21]))
+        raise Exception("ip v6 not supported")
