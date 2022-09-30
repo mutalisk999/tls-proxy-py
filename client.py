@@ -12,18 +12,18 @@ client_conf = None
 
 
 async def conn_handler(conn_reader, conn_writer):
+    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_ctx.options |= ssl.OP_NO_TLSv1
+    ssl_ctx.options |= ssl.OP_NO_TLSv1_1
+    ssl_ctx.load_cert_chain(certfile=client_conf.get("client_cert"), keyfile=client_conf.get("client_key"))
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.VerifyMode.CERT_NONE
+    ssl_ctx.set_ciphers('ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384')
+
     try:
-        ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        ssl_ctx.options |= ssl.OP_NO_TLSv1
-        ssl_ctx.options |= ssl.OP_NO_TLSv1_1
-        ssl_ctx.load_cert_chain(certfile=client_conf.get("client_cert"), keyfile=client_conf.get("client_key"))
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode = ssl.VerifyMode.CERT_NONE
-        ssl_ctx.set_ciphers('ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384')
         client_reader, client_writer = await asyncio.open_connection(client_conf.get("server_host"),
                                                                      client_conf.get("server_port"),
                                                                      ssl=ssl_ctx)
-
     except Exception as ex:
         logging.warning(str(ex))
         if isinstance(ex, ConnectionRefusedError):
