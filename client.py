@@ -29,12 +29,15 @@ async def conn_handler(conn_reader, conn_writer):
         if isinstance(ex, ConnectionRefusedError):
             conn_writer.write(b"ConnectionRefusedError")
             await conn_writer.drain()
+            conn_writer.close()
         elif isinstance(ex, TimeoutError):
             conn_writer.write(b"TimeoutError")
             await conn_writer.drain()
+            conn_writer.close()
         else:
             conn_writer.write(str(ex).encode(encoding="ascii", errors="ignore"))
             await conn_writer.drain()
+            conn_writer.close()
         return
 
     # exchange data

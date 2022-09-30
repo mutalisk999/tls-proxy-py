@@ -17,11 +17,13 @@ async def conn_handler(conn_reader, conn_writer):
         data = await conn_reader.read(1024 * 1024)
         check = socks5.parse_handshake_body(data)
         if not check:
+            conn_writer.close()
             return
         conn_writer.write(b'\x05\x00')
         await conn_writer.drain()
     except Exception as ex:
         logging.warning(str(ex))
+        conn_writer.close()
         return
 
     # read request data
@@ -52,6 +54,7 @@ async def conn_handler(conn_reader, conn_writer):
                 logging.warning(str(ex))
                 conn_writer.write(bytes(data))
                 await conn_writer.drain()
+                conn_writer.close()
                 return
 
             # exchange data
@@ -62,10 +65,12 @@ async def conn_handler(conn_reader, conn_writer):
 
         else:
             logging.warning("CMD: 0x%x not support" % int(values[0]))
+            conn_writer.close()
             return
 
     except Exception as ex:
         logging.warning(str(ex))
+        conn_writer.close()
         return
 
 
