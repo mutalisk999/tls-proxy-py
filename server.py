@@ -14,7 +14,7 @@ from network import tcp_copy
 async def conn_handler(conn_reader, conn_writer):
     # read handshake data
     try:
-        data = await conn_reader.read(1024 * 1024)
+        data = await conn_reader.read(4096)
         check = socks5.parse_handshake_body(data)
         if not check:
             conn_writer.close()
@@ -28,7 +28,7 @@ async def conn_handler(conn_reader, conn_writer):
 
     # read request data
     try:
-        data = await conn_reader.read(1024 * 1024)
+        data = await conn_reader.read(4096)
         values = socks5.parse_request_body(data)
 
         if values[0] == chr(0x01):
@@ -91,7 +91,7 @@ async def run_server(_server_conf):
 
 
 def load_server_conf(conf_file):
-    server_conf = json.loads(open(conf_file).read(1024 * 1024))
+    server_conf = json.loads(open(conf_file).read(4096))
     assert server_conf is not None \
            and server_conf.get("listen_host") is not None \
            and server_conf.get("listen_port") is not None \

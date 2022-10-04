@@ -54,7 +54,7 @@ async def run_client(_client_conf):
 
 
 def load_client_conf(conf_file):
-    client_conf = json.loads(open(conf_file).read(1024 * 1024))
+    client_conf = json.loads(open(conf_file).read(4096))
     assert client_conf is not None and client_conf.get("listen_host") is not None \
            and client_conf.get("listen_port") is not None \
            and client_conf.get("server_host") is not None \

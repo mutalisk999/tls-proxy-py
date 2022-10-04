@@ -7,7 +7,7 @@ import logging
 async def tcp_copy(_reader, _writer):
     while True:
         try:
-            data = await _reader.read(1024 * 1024)
+            data = await _reader.read(4096)
             if not data:
                 _writer.close()
                 break
