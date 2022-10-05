@@ -41,6 +41,7 @@ async def conn_handler(conn_reader, conn_writer):
                 data = [0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 
             try:
+                logging.info("proxy to %s:%d" % (values[2], values[3]))
                 client_reader, client_writer = await asyncio.open_connection(values[2], values[3])
                 conn_writer.write(bytes(data))
                 await conn_writer.drain()
