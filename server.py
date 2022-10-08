@@ -82,7 +82,9 @@ async def run_server(_server_conf):
     ssl_ctx.options |= ssl.OP_SINGLE_DH_USE
     ssl_ctx.options |= ssl.OP_SINGLE_ECDH_USE
     ssl_ctx.load_cert_chain(certfile=_server_conf.get("server_cert"), keyfile=_server_conf.get("server_key"))
+    ssl_ctx.load_verify_locations(cafile=_server_conf.get("ca_cert"))
     ssl_ctx.check_hostname = False
+    # ssl_ctx.verify_mode = ssl.VerifyMode.CERT_REQUIRED
     ssl_ctx.verify_mode = ssl.VerifyMode.CERT_NONE
     ssl_ctx.set_ciphers('ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384')
     await asyncio.start_server(conn_handler,
@@ -97,7 +99,8 @@ def load_server_conf(conf_file):
            and server_conf.get("listen_host") is not None \
            and server_conf.get("listen_port") is not None \
            and server_conf.get("server_key") is not None \
-           and server_conf.get("server_cert") is not None
+           and server_conf.get("server_cert") is not None \
+           and server_conf.get("ca_cert") is not None
     return server_conf
 
 

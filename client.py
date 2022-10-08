@@ -16,7 +16,9 @@ async def conn_handler(conn_reader, conn_writer):
     ssl_ctx.options |= ssl.OP_NO_TLSv1
     ssl_ctx.options |= ssl.OP_NO_TLSv1_1
     ssl_ctx.load_cert_chain(certfile=client_conf.get("client_cert"), keyfile=client_conf.get("client_key"))
+    ssl_ctx.load_verify_locations(cafile=client_conf.get("ca_cert"))
     ssl_ctx.check_hostname = False
+    # ssl_ctx.verify_mode = ssl.VerifyMode.CERT_REQUIRED
     ssl_ctx.verify_mode = ssl.VerifyMode.CERT_NONE
     ssl_ctx.set_ciphers('ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384')
 
@@ -60,7 +62,8 @@ def load_client_conf(conf_file):
            and client_conf.get("server_host") is not None \
            and client_conf.get("server_port") is not None \
            and client_conf.get("client_key") is not None \
-           and client_conf.get("client_cert") is not None
+           and client_conf.get("client_cert") is not None \
+           and client_conf.get("ca_cert") is not None
     return client_conf
 
 
